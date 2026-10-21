@@ -8,11 +8,10 @@ connection and controller commands.
 
 ## Download and install
 
-This repository contains the source code; generated installers are not checked
-in. When a prebuilt version is published, download it from the
-[GitHub Releases page](https://github.com/ivangredi24-blip/LumiDesk/releases).
-Otherwise, follow **Build from source** below to create
-`build/LumiDesk-Setup-x64.exe`.
+Download the current per-user Windows installer:
+[**LumiDesk-Setup-x64.exe**](https://github.com/ivangredi24-blip/LumiDesk/raw/refs/heads/main/build/LumiDesk-Setup-x64.exe).
+For a portable build or to build from the latest source, follow **Build from
+source** below; the build script produces the installer and portable packages.
 
 The installer provides a normal per-user Windows install with a Start Menu
 shortcut, optional desktop shortcut, and uninstaller. Administrator privileges
