@@ -21,10 +21,11 @@ needed only if that prerequisite must be downloaded. Windows 11 includes
 WebView2; most Windows 10 installations already have it as well. Builds are
 currently unsigned, so Windows may show a SmartScreen warning.
 
-For portable use, run **`build/LumiDesk-Portable-x64.exe`** or extract
-**`build/LumiDesk-Portable-x64.zip`**. The portable build still depends on the
-Windows WebView2 Runtime; see `README-Portable.txt`. Neither install path
-requires Go, Node.js, Git, or a terminal.
+The source build also creates **`build/LumiDesk-Portable-x64.exe`** and
+**`build/LumiDesk-Portable-x64.zip`**. Portable builds still depend on the
+Windows WebView2 Runtime; see `README-Portable.txt`. Once packaged, the
+installer and portable executable do not require Go, Node.js, Git, or a
+terminal.
 
 Upgrades preserve the per-user settings and presets. Uninstalling LumiDesk also
 preserves those files; remove `%APPDATA%\LumiDesk` manually only if you want to
