@@ -25,6 +25,7 @@ export type Settings = {
   visualEffectSpeed: number
   launchAtLogin: boolean
   startupLightsOn: boolean
+  preLoginLights: boolean
   shutdownLightsOff: boolean
   restoreLastColor: boolean
   startupColorMode: 'last' | 'favorite' | 'preset'
@@ -69,6 +70,7 @@ export type Snapshot = {
   settings: Settings
   presets: Preset[]
   startupAvailable: boolean
+  preLoginAvailable: boolean
   recoveryWarnings: string[]
 }
 

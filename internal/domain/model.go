@@ -116,6 +116,7 @@ type Settings struct {
 	VisualEffectSpeed  int      `json:"visualEffectSpeed"`
 	LaunchAtLogin      bool     `json:"launchAtLogin"`
 	StartupLightsOn    bool     `json:"startupLightsOn"`
+	PreLoginLights     bool     `json:"preLoginLights"`
 	ShutdownLightsOff  bool     `json:"shutdownLightsOff"`
 	RestoreLastColor   bool     `json:"restoreLastColor"`
 	StartupColorMode   string   `json:"startupColorMode"` // last, favorite, preset

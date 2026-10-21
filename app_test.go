@@ -48,6 +48,63 @@ func TestWindowsStartupSettingRegistrationIsTransactional(t *testing.T) {
 	}
 }
 
+func TestBeforeLoginStartupSettingRegistrationIsTransactional(t *testing.T) {
+	store, err := persistence.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	registrar := &memoryStartup{}
+	app, err := NewApp(store, nil, registrar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := app.settingsCopy()
+	settings.PreLoginLights = true
+	if err := app.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	if !registrar.beforeLogin || registrar.beforeLoginSetCalls != 1 {
+		t.Fatalf("pre-login task wasn't registered: enabled=%t calls=%d", registrar.beforeLogin, registrar.beforeLoginSetCalls)
+	}
+	reloaded, err := store.LoadSettings()
+	if err != nil || !reloaded.PreLoginLights {
+		t.Fatalf("pre-login preference did not persist: %+v, %v", reloaded, err)
+	}
+
+	registrar.beforeLoginErr = errors.New("task registration denied")
+	settings.PreLoginLights = false
+	if err := app.SaveSettings(settings); err == nil {
+		t.Fatal("expected task registration failure to be reported")
+	}
+	reloaded, err = store.LoadSettings()
+	if err != nil || !reloaded.PreLoginLights || !registrar.beforeLogin {
+		t.Fatalf("failed task update changed persisted state: settings=%+v task=%t error=%v", reloaded, registrar.beforeLogin, err)
+	}
+}
+
+func TestReconcileRepairsOptedInBeforeLoginTaskWhenQueryIsDenied(t *testing.T) {
+	store, err := persistence.New(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	registrar := &memoryStartup{}
+	app, err := NewApp(store, nil, registrar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := app.settingsCopy()
+	settings.PreLoginLights = true
+	if err := app.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	registrar.beforeLoginReadErr = errors.New("access denied")
+	previousCalls := registrar.beforeLoginSetCalls
+	app.reconcileStartupRegistration()
+	if registrar.beforeLoginSetCalls != previousCalls+1 || !registrar.beforeLogin {
+		t.Fatalf("opted-in startup wasn't repaired after a denied task query: calls=%d enabled=%t", registrar.beforeLoginSetCalls, registrar.beforeLogin)
+	}
+}
+
 func TestBLEStatePersistenceDoesNotOverwriteUserPreferences(t *testing.T) {
 	store, err := persistence.New(t.TempDir())
 	if err != nil {
@@ -240,10 +297,14 @@ func TestPresetCreateEditFavoriteImportOrderAndDelete(t *testing.T) {
 }
 
 type memoryStartup struct {
-	mu       sync.Mutex
-	enabled  bool
-	setCalls int
-	err      error
+	mu                  sync.Mutex
+	enabled             bool
+	setCalls            int
+	err                 error
+	beforeLogin         bool
+	beforeLoginSetCalls int
+	beforeLoginErr      error
+	beforeLoginReadErr  error
 }
 
 func appTestSettings() domain.Settings {
@@ -269,6 +330,26 @@ func (s *memoryStartup) SetEnabled(enabled bool) error {
 		return s.err
 	}
 	s.enabled = enabled
+	return nil
+}
+
+func (s *memoryStartup) BeforeLoginEnabled() (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.beforeLoginReadErr != nil {
+		return false, s.beforeLoginReadErr
+	}
+	return s.beforeLogin, nil
+}
+
+func (s *memoryStartup) SetBeforeLoginEnabled(enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.beforeLoginSetCalls++
+	if s.beforeLoginErr != nil {
+		return s.beforeLoginErr
+	}
+	s.beforeLogin = enabled
 	return nil
 }
 

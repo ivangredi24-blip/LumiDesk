@@ -77,8 +77,29 @@ begin
 end;
 
 function InitializeUninstall: Boolean;
+var
+  ResultCode: Integer;
+  PreLoginTaskRegistered: String;
 begin
-  { Startup is per-user. Remove only LumiDesk's entry; user settings/presets stay in AppData. }
+  if RegQueryStringValue(HKCU, 'Software\LumiDesk', 'PreLoginTaskRegistered', PreLoginTaskRegistered) then
+  begin
+    if not ShellExec('runas', ExpandConstant('{sys}\schtasks.exe'),
+      '/Delete /TN LumiDesk_PreLoginLights /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      MsgBox('Administrator approval is needed to remove LumiDesk''s before-sign-in task. Uninstall was cancelled.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    if (ResultCode <> 0) and (ResultCode <> 1) then
+    begin
+      MsgBox('The before-sign-in task could not be removed. Uninstall was cancelled.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    RegDeleteValue(HKCU, 'Software\LumiDesk', 'PreLoginTaskRegistered');
+    RegDeleteValue(HKCU, 'Software\LumiDesk', 'PreLoginLightsEnabled');
+  end;
+  { Remove LumiDesk's startup entries; user settings and presets stay in AppData. }
   RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'LumiDesk');
   Result := True;
 end;

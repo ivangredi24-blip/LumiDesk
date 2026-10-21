@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"io/fs"
 	"log"
 	"os"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -21,6 +23,19 @@ import (
 var embeddedFrontend embed.FS
 
 func main() {
+	if configDir, requested := preLoginStartupConfig(os.Args[1:]); requested {
+		if err := runPreLoginStartup(configDir); err != nil {
+			log.Printf("pre-login LED startup failed: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+	releaseDesktop, err := platform.MarkDesktopRunning()
+	if err != nil {
+		log.Printf("could not create cross-session desktop marker: %v", err)
+	} else {
+		defer releaseDesktop()
+	}
 	releaseMutex, alreadyRunning, err := platform.AcquireSingleInstance(`Local\LumiDesk.SingleInstance`)
 	if err != nil {
 		log.Fatalf("LumiDesk could not acquire its single-instance lock: %v", err)
@@ -42,6 +57,13 @@ func main() {
 	app, err := NewApp(store, logger, platform.WindowsStartup{})
 	if err != nil {
 		log.Fatalf("LumiDesk could not load its local data: %v", err)
+	}
+	if app.settingsCopy().PreLoginLights {
+		waitCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		if err := platform.WaitForPreLoginAgent(waitCtx); err != nil {
+			app.log("pre-login LED task did not finish before the desktop app started: %v", err)
+		}
+		cancel()
 	}
 
 	stopShutdownMonitor, err := platform.StartSessionMonitor(app.HandleShutdownQuery, app.HandleShutdownEnd)

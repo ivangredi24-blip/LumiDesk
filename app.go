@@ -23,11 +23,12 @@ import (
 )
 
 type Snapshot struct {
-	State            control.State   `json:"state"`
-	Settings         domain.Settings `json:"settings"`
-	Presets          []domain.Preset `json:"presets"`
-	StartupAvailable bool            `json:"startupAvailable"`
-	RecoveryWarnings []string        `json:"recoveryWarnings"`
+	State             control.State   `json:"state"`
+	Settings          domain.Settings `json:"settings"`
+	Presets           []domain.Preset `json:"presets"`
+	StartupAvailable  bool            `json:"startupAvailable"`
+	PreLoginAvailable bool            `json:"preLoginAvailable"`
+	RecoveryWarnings  []string        `json:"recoveryWarnings"`
 }
 
 type App struct {
@@ -183,7 +184,8 @@ func (a *App) GetSnapshot() Snapshot {
 	presets := append([]domain.Preset{}, a.presets...)
 	a.mu.RUnlock()
 	startupAvailable := a.startup != nil
-	return Snapshot{State: a.manager.Snapshot(), Settings: settings, Presets: presets, StartupAvailable: startupAvailable, RecoveryWarnings: a.store.RecoveryWarnings()}
+	_, preLoginAvailable := a.startup.(platform.BeforeLoginStartupRegistrar)
+	return Snapshot{State: a.manager.Snapshot(), Settings: settings, Presets: presets, StartupAvailable: startupAvailable, PreLoginAvailable: preLoginAvailable, RecoveryWarnings: a.store.RecoveryWarnings()}
 }
 
 func (a *App) ScanDevices() ([]domain.Device, error) {
@@ -331,15 +333,36 @@ func (a *App) SaveSettings(settings domain.Settings) error {
 		return err
 	}
 	previous := a.settingsCopy()
-	if a.startup != nil && settings.LaunchAtLogin != previous.LaunchAtLogin {
+	launchChanged := settings.LaunchAtLogin != previous.LaunchAtLogin
+	preLoginChanged := settings.PreLoginLights != previous.PreLoginLights
+	preLoginRegistrar, preLoginSupported := a.startup.(platform.BeforeLoginStartupRegistrar)
+	if settings.PreLoginLights && !preLoginSupported {
+		return errors.New("before-sign-in light startup is unavailable on this platform")
+	}
+	launchApplied := false
+	preLoginApplied := false
+	if a.startup != nil && launchChanged {
 		if err := a.startup.SetEnabled(settings.LaunchAtLogin); err != nil {
 			return fmt.Errorf("could not update Windows startup: %w", err)
 		}
+		launchApplied = true
+	}
+	if preLoginChanged && preLoginSupported {
+		if err := preLoginRegistrar.SetBeforeLoginEnabled(settings.PreLoginLights); err != nil {
+			if launchApplied {
+				_ = a.startup.SetEnabled(previous.LaunchAtLogin)
+			}
+			return fmt.Errorf("could not update before-sign-in light startup: %w", err)
+		}
+		preLoginApplied = true
 	}
 	a.mu.Lock()
 	if err := a.store.SaveSettings(settings); err != nil {
 		a.mu.Unlock()
-		if a.startup != nil && settings.LaunchAtLogin != previous.LaunchAtLogin {
+		if preLoginApplied {
+			_ = preLoginRegistrar.SetBeforeLoginEnabled(previous.PreLoginLights)
+		}
+		if a.startup != nil && launchApplied {
 			_ = a.startup.SetEnabled(previous.LaunchAtLogin)
 		}
 		return err
@@ -670,11 +693,27 @@ func (a *App) reconcileStartupRegistration() {
 	enabled, err := a.startup.Enabled()
 	if err != nil {
 		a.log("could not inspect Windows startup registration: %v", err)
-		return
-	}
-	if enabled != a.settingsCopy().LaunchAtLogin {
+	} else if enabled != a.settingsCopy().LaunchAtLogin {
 		if err := a.startup.SetEnabled(a.settingsCopy().LaunchAtLogin); err != nil {
 			a.log("could not synchronize Windows startup registration: %v", err)
+		}
+	}
+	if beforeLogin, ok := a.startup.(platform.BeforeLoginStartupRegistrar); ok {
+		settings := a.settingsCopy()
+		enabled, err := beforeLogin.BeforeLoginEnabled()
+		if err != nil {
+			a.log("could not inspect the pre-login startup task: %v", err)
+			// Older prototype tasks may deny query access. Reinstall once when the
+			// user has opted in; the new SYSTEM task records its registration marker.
+			if settings.PreLoginLights {
+				if err := beforeLogin.SetBeforeLoginEnabled(true); err != nil {
+					a.log("could not repair the pre-login startup task: %v", err)
+				}
+			}
+		} else if enabled != settings.PreLoginLights {
+			if err := beforeLogin.SetBeforeLoginEnabled(settings.PreLoginLights); err != nil {
+				a.log("could not synchronize the pre-login startup task: %v", err)
+			}
 		}
 	}
 }

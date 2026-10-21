@@ -428,7 +428,7 @@ export default function App() {
             </section>
           </>}
 
-          {page === 'automation' && settings && <AutomationPage settings={settings} presets={presets} startupAvailable={snapshot?.startupAvailable ?? false} onChange={updateSettings} showToast={showToast} />}
+          {page === 'automation' && settings && <AutomationPage settings={settings} presets={presets} startupAvailable={snapshot?.startupAvailable ?? false} preLoginAvailable={snapshot?.preLoginAvailable ?? false} onChange={updateSettings} showToast={showToast} />}
 
           <footer className="page-footer"><span>© LumiDesk</span><span><i /> Everything stays on this PC</span><button onClick={() => showToast('Controller: LotusLantern / TinyGo BLE · Local data is stored in your Windows user profile.', 'info')}><CircleHelp size={13} /> About LumiDesk</button></footer>
         </div>
@@ -537,13 +537,16 @@ function PresetModal({ preset, currentColor, currentBrightness, onClose, onSave 
   </div></div>
 }
 
-function AutomationPage({ settings, presets, startupAvailable, onChange, showToast }: { settings: Settings; presets: Preset[]; startupAvailable: boolean; onChange: (patch: Partial<Settings>) => void; showToast: (message: string, kind: Toast['kind']) => void }) {
+function AutomationPage({ settings, presets, startupAvailable, preLoginAvailable, onChange, showToast }: { settings: Settings; presets: Preset[]; startupAvailable: boolean; preLoginAvailable: boolean; onChange: (patch: Partial<Settings>) => void; showToast: (message: string, kind: Toast['kind']) => void }) {
   return <section className="automation-page">
     <div className="page-intro"><div><div className="eyebrow"><span className="eyebrow-line" /> SET IT AND FORGET IT</div><h1>Always in <span>sync</span></h1><p>Choose what LumiDesk does when your PC starts, sleeps, or shuts down.</p></div><div className="automation-badge"><Activity size={16} /> LOCAL AUTOMATION</div></div>
     <div className="automation-layout">
       <div className="automation-main">
         <section className="panel automation-panel"><div className="automation-heading"><div className="automation-icon purple"><Power size={17} /></div><div><h2>Windows startup</h2><p>Bring your lighting online when you sign in.</p></div></div>
           <SettingRow title="Launch LumiDesk when Windows starts" detail="Starts quietly in the system tray." enabled={settings.launchAtLogin} disabled={!startupAvailable} onToggle={(value) => onChange({ launchAtLogin: value })} />
+          <SettingRow title="Turn LEDs on before sign-in" detail="Installs a headless SYSTEM task; Windows asks for administrator approval once." enabled={settings.preLoginLights} disabled={!preLoginAvailable} onToggle={(value) => onChange({ preLoginLights: value })} />
+          {!preLoginAvailable && <div className="setting-note"><Info size={14} /> Pre-sign-in lighting is only available in the Windows desktop build.</div>}
+          {preLoginAvailable && <div className="setting-note"><Info size={14} /> Experimental: BLE availability before sign-in depends on the PC and Bluetooth adapter. Turning this off leaves the task dormant; uninstalling removes it with administrator approval.</div>}
           <SettingRow title="Turn LEDs on at startup" detail="Reconnect and restore your chosen light state." enabled={settings.startupLightsOn} onToggle={(value) => onChange({ startupLightsOn: value })} />
           <SettingRow title="Restore the last used colour" detail="Use your most recent RGB colour and brightness." enabled={settings.restoreLastColor} onToggle={(value) => onChange({ restoreLastColor: value, startupColorMode: value ? 'last' : settings.startupColorMode === 'last' ? (settings.favoritePresetId ? 'favorite' : 'preset') : settings.startupColorMode })} />
           <div className="setting-subrow"><span>Startup colour</span><select value={settings.startupColorMode} onChange={(e) => onChange({ startupColorMode: e.target.value as Settings['startupColorMode'] })}>

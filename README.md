@@ -64,6 +64,18 @@ colour, a favourite, or a selected preset. The startup registration is stored
 under the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 key and does not need elevation.
 
+The optional **Turn LEDs on before sign-in** setting creates a headless Task
+Scheduler task at Windows boot. Windows requests administrator approval to
+install it; the task runs as `SYSTEM`, reads the local LumiDesk
+settings, restores the selected strips, then closes its BLE links so the desktop
+app can reconnect after sign-in. This is experimental: Windows and Bluetooth
+adapter support for BLE before an interactive sign-in varies. Failures are
+logged to `%APPDATA%\LumiDesk\prelogin-startup.log`; test it with the actual PC
+and strip.
+Turning the setting off leaves the task installed but inert so it does not need
+another elevation prompt. Uninstalling LumiDesk removes the task and asks for
+administrator approval.
+
 When **Turn LEDs off on Windows shutdown** is enabled, a hidden native Windows
 window listens for `WM_QUERYENDSESSION` and attempts the controller's native
 OFF command before Windows ends the session. The attempt is bounded and does
@@ -156,9 +168,10 @@ Automated checks (`go test ./...`) cover:
   mock registrar; shutdown cancellation/restoration logic using mock BLE.
 - Log rotation.
 
-The application and installer have **not** had a physical-device integration
-run as part of this build. Before relying on shutdown automation, please
-physically verify the following with your ELK-BLEDOM 66 and observe each result:
+The user reports a successful pre-sign-in light-on test with an ELK-BLEDOB 66.
+Repeated cold boots, other Bluetooth adapters/controllers, and shutdown
+automation still need physical verification. Before relying on shutdown
+automation, please verify the following with your device and observe each result:
 
 The x64 executable and installer compiled successfully. The installer was
 installed, upgraded in place, and uninstalled in a unique temporary directory;
