@@ -1,0 +1,12 @@
+frontend/node_modules/
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/tsconfig.tsbuildinfo
+build/bin/
+build/LumiDesk.exe
+build/LumiDesk-Portable-x64.exe
+build/LumiDesk-Portable-x64.zip
+build/LumiDesk-Setup-x64.exe
+build/SHA256SUMS.txt
+build/portable/
+*.log
